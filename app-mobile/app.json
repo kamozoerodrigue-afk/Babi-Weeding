@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "Babi Wedding",
+    "slug": "babi-wedding",
+    "version": "1.0.0",
+    "scheme": "babiwedding",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "ci.babiwedding.app"
+    },
+    "android": {
+      "package": "ci.babiwedding.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#E64A5D"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-asset",
+      "expo-font"
+    ],
+    "experiments": {
+      "typedRoutes": false
+    },
+    "extra": {
+      "supabase": {
+        "url": "https://hpsvxzpovrafsolxkwto.supabase.co",
+        "anonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhwc3Z4enBvdnJhZnNvbHhrd3RvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwOTM2NDcsImV4cCI6MjEwMzY2OTY0N30.k_oGLqbf8FkOu_1rZg9nyNPvTNOtkIL_jVskxyHKPg8"
+      }
+    }
+  }
+}

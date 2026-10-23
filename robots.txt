@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /dashboard/
+Disallow: /*?utm_
+
+Sitemap: https://babiwedding.ci/sitemap.xml

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connexion — Babi Wedding</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#1F2124">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Merriweather:wght@700&family=Nunito+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/app.css">
+<style>
+  .auth-page   { min-height:100vh; display:grid; place-items:center; padding:32px 18px; background:#F7F7F5; }
+  .auth-boite  { width:100%; max-width:430px; background:#fff; border:1px solid #E4E4E1;
+                 border-radius:16px; padding:30px 28px 26px; box-shadow:0 2px 24px rgba(0,0,0,.05); }
+  .auth-logo   { font-family:Merriweather,Georgia,serif; font-size:22px; margin:0 0 4px; }
+  .auth-sous   { color:#6B6B68; font-size:14px; margin:0 0 22px; }
+  .auth-ong    { display:flex; gap:6px; background:#F1F1EE; border-radius:10px; padding:4px; margin-bottom:22px; }
+  .auth-ong button { flex:1; border:0; background:none; padding:9px 0; border-radius:7px;
+                 font:inherit; font-weight:600; color:#6B6B68; cursor:pointer; }
+  .auth-ong button.on { background:#fff; color:#1F2124; box-shadow:0 1px 3px rgba(0,0,0,.08); }
+  .auth-champ  { margin-bottom:14px; }
+  .auth-champ label { display:block; font-size:13px; font-weight:600; margin-bottom:5px; }
+  .auth-msg    { border-radius:9px; padding:11px 13px; font-size:13.5px; margin-bottom:16px; display:none; }
+  .auth-msg.err{ background:#FDECEC; color:#9B1C1C; border:1px solid #F5C6C6; display:block; }
+  .auth-msg.ok { background:#EAF6EE; color:#1B5E33; border:1px solid #C3E4CE; display:block; }
+  .auth-msg.info{background:#EEF3FB; color:#1F3F73; border:1px solid #CBD9EE; display:block; }
+  .auth-pied   { margin-top:18px; text-align:center; font-size:13px; color:#6B6B68; }
+  .auth-pied a { color:#1F2124; }
+  .auth-roles  { display:flex; gap:8px; margin-bottom:14px; }
+  .auth-roles label { flex:1; border:1.5px solid #E4E4E1; border-radius:10px; padding:11px 10px;
+                 text-align:center; font-size:13.5px; font-weight:600; cursor:pointer; }
+  .auth-roles input { position:absolute; opacity:0; }
+  .auth-roles input:checked + span { color:#B23A48; }
+  .auth-roles label:has(input:checked) { border-color:#B23A48; background:#FCF4F5; }
+</style>
+</head>
+<body class="auth-page">
+
+<main class="auth-boite">
+  <h1 class="auth-logo">Babi&nbsp;Wedding</h1>
+  <p class="auth-sous" id="sous">Accédez à votre espace.</p>
+
+  <div class="auth-ong" role="tablist">
+    <button type="button" id="ong-connexion" class="on" role="tab">Se connecter</button>
+    <button type="button" id="ong-inscription" role="tab">Créer un compte</button>
+  </div>
+
+  <div class="auth-msg" id="msg" role="status"></div>
+
+  <!-- ---------- CONNEXION ---------- -->
+  <form id="f-connexion" novalidate>
+    <div class="auth-champ">
+      <label for="c-mail">Adresse électronique</label>
+      <input class="inp" type="email" id="c-mail" autocomplete="email" required>
+    </div>
+    <div class="auth-champ">
+      <label for="c-mdp">Mot de passe</label>
+      <input class="inp" type="password" id="c-mdp" autocomplete="current-password" required>
+    </div>
+    <button class="btn btn-primary btn-block" type="submit" id="c-envoi">Se connecter</button>
+    <p class="auth-pied"><a href="#" id="oubli">Mot de passe oublié ?</a></p>
+  </form>
+
+  <!-- ---------- INSCRIPTION ---------- -->
+  <form id="f-inscription" novalidate hidden>
+    <div class="auth-roles">
+      <label><input type="radio" name="role" value="couple" checked><span>Je me marie</span></label>
+      <label><input type="radio" name="role" value="prestataire"><span>Je suis prestataire</span></label>
+    </div>
+    <div class="auth-champ">
+      <label for="i-nom">Nom complet</label>
+      <input class="inp" type="text" id="i-nom" autocomplete="name" required>
+    </div>
+    <div class="auth-champ">
+      <label for="i-mail">Adresse électronique</label>
+      <input class="inp" type="email" id="i-mail" autocomplete="email" required>
+    </div>
+    <div class="auth-champ">
+      <label for="i-mdp">Mot de passe <span class="muet petit">(8 caractères minimum)</span></label>
+      <input class="inp" type="password" id="i-mdp" autocomplete="new-password" minlength="8" required>
+    </div>
+    <button class="btn btn-primary btn-block" type="submit" id="i-envoi">Créer mon compte</button>
+  </form>
+
+  <p class="auth-pied" style="margin-top:22px"><a href="index.html">Retour au site</a></p>
+</main>
+
+<script src="assets/js/config.js?v=3"></script>
+<script src="assets/js/store.js?v=3"></script>
+<script>
+BW.boot(['assets/js/connexion.js']);
+</script>
+</body>
+</html>

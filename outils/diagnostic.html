@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diagnostic — Babi Wedding</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin:0; font:15px/1.55 "Nunito Sans", system-ui, sans-serif; color:#1F2124; background:#F7F7F5; }
+  main { max-width:820px; margin:0 auto; padding:34px 20px 60px; }
+  h1 { font-family:Merriweather, Georgia, serif; font-size:26px; margin:0 0 6px; }
+  .sous { color:#6B6B68; margin:0 0 26px; }
+  .bloc { background:#fff; border:1px solid #E4E4E1; border-radius:14px; padding:6px 20px 14px; margin-bottom:18px; }
+  .bloc h2 { font-size:15px; text-transform:uppercase; letter-spacing:.04em; color:#6B6B68; margin:18px 0 10px; }
+  table { width:100%; border-collapse:collapse; }
+  td { padding:8px 0; border-top:1px solid #F0F0ED; vertical-align:top; font-size:14px; }
+  td:first-child { width:34px; }
+  td:last-child { text-align:right; color:#6B6B68; white-space:nowrap; padding-left:12px; }
+  .ok::before  { content:"●"; color:#2E7D5B; }
+  .bad::before { content:"●"; color:#B23A48; }
+  .wait::before{ content:"●"; color:#C9A84C; }
+  .detail { color:#8A8A86; font-size:13px; display:block; margin-top:2px; }
+  .bilan { border-radius:12px; padding:15px 18px; font-size:14.5px; margin-bottom:22px; }
+  .bilan.ok  { background:#EAF6EE; border:1px solid #C3E4CE; color:#1B5E33; }
+  .bilan.bad { background:#FDECEC; border:1px solid #F5C6C6; color:#9B1C1C; }
+  .bilan.wait{ background:#FBF6E6; border:1px solid #EBDCA8; color:#6B5410; }
+  code { background:#F1F1EE; padding:1px 5px; border-radius:4px; font-size:13px; }
+  .aide { font-size:13.5px; color:#6B6B68; line-height:1.6; }
+  .aide li { margin-bottom:6px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Diagnostic Babi&nbsp;Wedding</h1>
+  <p class="sous">Vérifie que la base répond, que le schéma est complet et que les
+     protections sont en place. Aucune donnée n'est modifiée.</p>
+
+  <div class="bilan wait" id="bilan">Analyse en cours…</div>
+
+  <div class="bloc">
+    <h2>Connexion</h2>      <table id="t-connexion"></table>
+    <h2>Référentiels</h2>   <table id="t-ref"></table>
+    <h2>Catalogue public</h2><table id="t-public"></table>
+    <h2>Protection des données</h2><table id="t-securite"></table>
+    <h2>Page d’accueil, fonctions et temps réel</h2><table id="t-extra"></table>
+  </div>
+
+  <div class="bloc">
+    <h2>Cache du navigateur</h2>
+    <table id="t-cache"></table>
+    <p class="aide" style="margin:12px 0 4px">
+      Si une modification du code n'apparaît pas, c'est presque toujours le
+      service worker qui sert encore l'ancienne version. Ce bouton le retire,
+      vide les caches et recharge tout depuis le disque.
+    </p>
+    <button id="purger" style="margin:6px 0 14px;padding:10px 16px;border:1px solid #E4E4E1;
+      border-radius:9px;background:#1F2124;color:#fff;font:inherit;font-weight:600;cursor:pointer">
+      Forcer la mise à jour du site
+    </button>
+    <p id="purge-etat" class="aide" style="margin:0"></p>
+  </div>
+
+  <div class="bloc" id="suite" hidden>
+    <h2>Ce qu'il reste à faire</h2>
+    <ul class="aide" id="conseils"></ul>
+  </div>
+</main>
+
+<script src="../assets/js/config.js"></script>
+<script>
+(function () {
+  'use strict';
+  var CFG = window.BW_CONFIG || {};
+  var sb = null, problemes = [], avertissements = [], conseils = [];
+
+  function ligne(table, etat, texte, valeur, detail) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td class="' + etat + '"></td>' +
+      '<td>' + texte + (detail ? '<span class="detail">' + detail + '</span>' : '') + '</td>' +
+      '<td>' + (valeur === undefined ? '' : valeur) + '</td>';
+    document.getElementById(table).appendChild(tr);
+  }
+
+  function conseil(html) { conseils.push(html); }
+
+  function charger(src) {
+    return new Promise(function (ok, ko) {
+      var s = document.createElement('script');
+      s.src = src; s.onload = ok; s.onerror = function () { ko(new Error(src)); };
+      document.head.appendChild(s);
+    });
+  }
+
+  /* --- Lecture d'une table ou d'une vue --------------------------------- */
+  function compter(source) {
+    return sb.from(source).select('*', { count: 'exact', head: true })
+      .then(function (r) { return r.error ? { err: r.error } : { n: r.count }; })
+      .catch(function (e) { return { err: e }; });
+  }
+
+  function verifierSource(table, source, libelle, attenduMin) {
+    return compter(source).then(function (r) {
+      if (r.err) {
+        var m = r.err.message || String(r.err);
+        var absente = /does not exist|schema cache|Could not find/i.test(m);
+        ligne(table, 'bad', libelle, 'absente',
+              absente ? 'La table ou la vue n’existe pas encore.' : m);
+        problemes.push(source);
+        return 0;
+      }
+      if (attenduMin !== undefined && r.n < attenduMin) {
+        ligne(table, 'wait', libelle, r.n + ' ligne' + (r.n > 1 ? 's' : ''),
+              'Attendu : au moins ' + attenduMin + '.');
+        avertissements.push(source);
+      } else {
+        ligne(table, 'ok', libelle, r.n + ' ligne' + (r.n > 1 ? 's' : ''));
+      }
+      return r.n;
+    });
+  }
+
+  /* ====================================================================== */
+  function lancer() {
+    if (!CFG.url || !CFG.anonKey) {
+      ligne('t-connexion', 'bad', 'Configuration', 'absente',
+            'Renseignez assets/js/config.js.');
+      problemes.push('configuration');
+      return Promise.resolve();
+    }
+    ligne('t-connexion', 'ok', 'Configuration lue', CFG.url.replace('https://', ''));
+
+    return charger(CFG.sdk).then(function () {
+      sb = supabase.createClient(CFG.url, CFG.anonKey);
+      ligne('t-connexion', 'ok', 'SDK Supabase chargé');
+      return sb.auth.getSession();
+    }).then(function (r) {
+      var s = r.data && r.data.session;
+      ligne('t-connexion', s ? 'ok' : 'wait',
+            s ? 'Session ouverte' : 'Aucune session ouverte',
+            s ? s.user.email : 'visiteur',
+            s ? '' : 'Normal : ce diagnostic teste d’abord l’accès public.');
+
+      /* ---------- Référentiels ---------- */
+      return Promise.all([
+        verifierSource('t-ref', 'categories', 'Catégories', 14),
+        verifierSource('t-ref', 'villes', 'Villes et communes', 11),
+        verifierSource('t-ref', 'offres', 'Offres d’abonnement', 4),
+        verifierSource('t-ref', 'trafic', 'Trafic mensuel', 1)
+      ]);
+    }).then(function () {
+      /* ---------- Catalogue public ---------- */
+      return Promise.all([
+        verifierSource('t-public', 'prestataires_publics', 'Prestataires validés', 1),
+        verifierSource('t-public', 'services_publics', 'Services publiés', 1),
+        verifierSource('t-public', 'avis_publics', 'Avis publiés', 0),
+        verifierSource('t-public', 'articles_publics', 'Articles publiés', 1)
+      ]);
+    }).then(function () {
+      /* ---------- Protections ---------- */
+      return Promise.all([
+        compter('prestataires'), compter('couples'), compter('devis'), compter('paiements')
+      ]);
+    }).then(function (r) {
+      var noms = ['prestataires (coordonnées directes)', 'couples', 'devis', 'paiements'];
+      r.forEach(function (x, i) {
+        if (x.err && /does not exist|Could not find/i.test(x.err.message || '')) {
+          ligne('t-securite', 'bad', noms[i], 'table absente');
+          problemes.push(noms[i]);
+        } else if (x.err || x.n === 0) {
+          ligne('t-securite', 'ok', noms[i], 'fermée',
+                'Un visiteur non connecté ne voit rien : c’est le comportement attendu.');
+        } else {
+          ligne('t-securite', 'bad', noms[i], x.n + ' lignes visibles',
+                'Un visiteur non connecté ne devrait rien voir. Rejouez db/02_ajustements.sql.');
+          problemes.push(noms[i]);
+        }
+      });
+
+      /* ---------- Ce dont la page d'accueil a besoin ---------- */
+      return verifierSource('t-extra', 'categories_publiques', 'Décomptes par catégorie', 14);
+    }).then(function () {
+      return sb.rpc('statistiques_publiques');
+    }).then(function (r) {
+      if (r && r.error) {
+        ligne('t-extra', 'bad', 'Totaux de la page d’accueil', 'absents', r.error.message);
+        problemes.push('statistiques_publiques');
+      } else {
+        var t = (r.data && r.data[0]) || {};
+        ligne('t-extra', 'ok', 'Totaux de la page d’accueil',
+              t.prestataires + ' pros',
+              t.couples + ' couples · ' + t.devis + ' devis · ' +
+              t.articles + ' articles publiés · ' + t.avis + ' avis publiés');
+      }
+
+      /* ---------- Fonction de comptage des vues ---------- */
+      return sb.rpc('incrementer_vues', { article_slug: '__diagnostic__' });
+    }).then(function (r) {
+      if (r && r.error) {
+        ligne('t-extra', 'bad', 'Fonction incrementer_vues', 'absente', r.error.message);
+        problemes.push('incrementer_vues');
+      } else {
+        ligne('t-extra', 'ok', 'Fonction incrementer_vues', 'disponible');
+      }
+
+      /* ---------- Temps réel ---------- */
+      return new Promise(function (fini) {
+        var minuteur = setTimeout(function () {
+          ligne('t-extra', 'wait', 'Temps réel', 'sans réponse',
+                'La synchronisation entre onglets sera inactive. Vérifiez Database → Replication.');
+          avertissements.push('temps réel');
+          fini();
+        }, 6000);
+        sb.channel('bw-diagnostic')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'prestataires' }, function () {})
+          .subscribe(function (etat) {
+            if (etat === 'SUBSCRIBED') {
+              clearTimeout(minuteur);
+              ligne('t-extra', 'ok', 'Temps réel', 'connecté');
+              fini();
+            } else if (etat === 'CHANNEL_ERROR' || etat === 'TIMED_OUT') {
+              clearTimeout(minuteur);
+              ligne('t-extra', 'wait', 'Temps réel', etat.toLowerCase());
+              avertissements.push('temps réel');
+              fini();
+            }
+          });
+      });
+    }).catch(function (e) {
+      ligne('t-connexion', 'bad', 'Connexion à la base', 'échec', e.message);
+      problemes.push('connexion');
+    });
+  }
+
+  /* ====================================================================== */
+  function conclure() {
+    var bilan = document.getElementById('bilan');
+
+    if (problemes.length === 0 && avertissements.length === 0) {
+      bilan.className = 'bilan ok';
+      bilan.textContent = 'Tout est en place. Les quatre surfaces web et l’application ' +
+        'mobile peuvent travailler sur cette base.';
+    } else if (problemes.length) {
+      bilan.className = 'bilan bad';
+      bilan.textContent = problemes.length + ' point' + (problemes.length > 1 ? 's' : '') +
+        ' à corriger avant que la plateforme fonctionne.';
+    } else {
+      bilan.className = 'bilan wait';
+      bilan.textContent = 'La base répond. ' + avertissements.length +
+        ' point' + (avertissements.length > 1 ? 's' : '') + ' d’attention, sans gravité.';
+    }
+
+    if (problemes.some(function (p) { return /publics|categories|villes|offres|trafic/.test(p); })) {
+      conseil('Exécutez <code>db/schema.sql</code> puis <code>db/02_ajustements.sql</code> ' +
+              'dans l’éditeur SQL de Supabase.');
+    }
+    if (problemes.indexOf('incrementer_vues') > -1) {
+      conseil('La fonction <code>incrementer_vues</code> manque : rejouez ' +
+              '<code>db/02_ajustements.sql</code>.');
+    }
+    if (problemes.indexOf('statistiques_publiques') > -1 ||
+        problemes.indexOf('categories_publiques') > -1) {
+      conseil('La page d’accueil restera figée : exécutez <code>db/04_vitrine.sql</code>.');
+    }
+    if (avertissements.length && problemes.length === 0) {
+      conseil('Les tables vides se remplissent avec <code>db/03_donnees_demo.sql</code>.');
+    }
+    conseil('Créez votre compte administrateur : Authentication → Users → Add user, ' +
+            'puis <code>update profils set role = \'admin\' where id = ' +
+            '(select id from auth.users where email = \'votre@adresse\');</code>');
+
+    if (conseils.length) {
+      document.getElementById('suite').hidden = false;
+      document.getElementById('conseils').innerHTML =
+        conseils.map(function (c) { return '<li>' + c + '</li>'; }).join('');
+    }
+  }
+
+  /* ---------------------------------------------------------------------
+     Cache et service worker
+     --------------------------------------------------------------------- */
+  function etatCache() {
+    if (!('serviceWorker' in navigator)) {
+      ligne('t-cache', 'ok', 'Service worker', 'non pris en charge');
+      return Promise.resolve();
+    }
+    return navigator.serviceWorker.getRegistrations().then(function (regs) {
+      if (!regs.length) {
+        ligne('t-cache', 'ok', 'Service worker', 'aucun',
+              'Le navigateur lit toujours les fichiers du disque.');
+      } else {
+        ligne('t-cache', 'ok', 'Service worker', regs.length + ' actif' + (regs.length > 1 ? 's' : ''),
+              'Version attendue : babi-wedding-v3.');
+      }
+      return caches.keys();
+    }).then(function (cles) {
+      if (!cles) return;
+      var anciens = cles.filter(function (k) { return k !== 'babi-wedding-v3'; });
+      if (anciens.length) {
+        ligne('t-cache', 'wait', 'Caches enregistrés', anciens.join(', '),
+              'Version périmée : utilisez le bouton ci-dessous.');
+        avertissements.push('cache');
+        conseil('Un cache périmé traîne encore : cliquez sur ' +
+                '<b>Forcer la mise à jour du site</b> plus bas.');
+      } else if (cles.length) {
+        ligne('t-cache', 'ok', 'Caches enregistrés', cles.join(', '));
+      } else {
+        ligne('t-cache', 'ok', 'Caches enregistrés', 'aucun');
+      }
+    }).catch(function () { /* contexte sans Cache API */ });
+  }
+
+  document.getElementById('purger').addEventListener('click', function () {
+    var etat = document.getElementById('purge-etat');
+    etat.textContent = 'Nettoyage en cours…';
+    var travaux = [];
+    if ('serviceWorker' in navigator) {
+      travaux.push(navigator.serviceWorker.getRegistrations().then(function (regs) {
+        return Promise.all(regs.map(function (r) { return r.unregister(); }));
+      }));
+    }
+    if (window.caches) {
+      travaux.push(caches.keys().then(function (cles) {
+        return Promise.all(cles.map(function (k) { return caches.delete(k); }));
+      }));
+    }
+    Promise.all(travaux).then(function () {
+      etat.textContent = 'Terminé. Rechargement…';
+      setTimeout(function () { location.reload(true); }, 600);
+    }).catch(function (e) {
+      etat.textContent = 'Échec du nettoyage : ' + e.message;
+    });
+  });
+
+  lancer().then(etatCache).then(conclure);
+})();
+</script>
+</body>
+</html>

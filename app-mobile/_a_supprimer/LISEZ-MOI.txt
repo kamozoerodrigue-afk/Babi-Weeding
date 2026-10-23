@@ -1,0 +1,2 @@
+Ce dossier contient l'ancienne version de src/data/catalogue.ts, conservée
+le temps de la migration vers la base de données. Vous pouvez le supprimer.
